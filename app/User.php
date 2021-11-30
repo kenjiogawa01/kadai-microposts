@@ -42,10 +42,6 @@ class User extends Authenticatable
         return $this->hasMany(Micropost::class);
     }
     
-    public function loadRelationshipCounts()
-    {
-        $this->loadCount(['microposts', 'followings', 'followers']);
-    }
     
      /**
      * このユーザがフォロー中のユーザ。（ Userモデルとの関係を定義）
@@ -62,6 +58,18 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(User::class, 'user_follow', 'follow_id', 'user_id')->withTimestamps();
     }
+    
+    public function favorites()
+    {
+        return $this->belongsToMany(Micropost::class, 'favorites', 'user_id' , 'micropost_id')->withTimestamps();
+    }
+    
+    
+    public function loadRelationshipCounts()
+    {
+        $this->loadCount(['microposts', 'followings', 'followers' , 'favorites']);
+    }
+    
     
     
     
@@ -105,6 +113,46 @@ class User extends Authenticatable
         }
     }
 
+
+    public function favorite($micropostId)
+    {
+        // すでにfavoしているかの確認
+        $exist = $this->is_favoriting($micropostId);
+
+        if ($exist) {
+            // すでにfavoしていれば何もしない
+            return false;
+        } else {
+            // 未favoであればする
+            $this->favorites()->attach($micropostId);
+            return true;
+        }
+    }
+    
+    
+    
+     public function unfavorite($micropostId)
+    {
+        // すでにfavoしているかの確認
+        $exist = $this->is_favoriting($userId);
+    
+        if ($exist) {
+            // すでにしていれば外す
+            $this->favorites()->detach($micropostId);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+     public function is_favoriting($micropostId)
+    {
+        // フォロー中ユーザの中に $userIdのものが存在するか
+        return $this->favorites()->where('micropost_id', $micropostId)->exists();
+    }
+    
+    
+    
     /**
      * 指定された $userIdのユーザをこのユーザがフォロー中であるか調べる。フォロー中ならtrueを返す。
      *
@@ -116,6 +164,8 @@ class User extends Authenticatable
         // フォロー中ユーザの中に $userIdのものが存在するか
         return $this->followings()->where('follow_id', $userId)->exists();
     }
+    
+   
     
     /**
      * このユーザとフォロー中ユーザの投稿に絞り込む。
